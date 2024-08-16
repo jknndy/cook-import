@@ -1,0 +1,3 @@
+poetry
+ingredient-parser-nlp
+recipe_scrapers
