@@ -5,12 +5,36 @@ import re
 import sys
 import requests
 
-from recipe_scrapers import scrape_html, WebsiteNotImplementedError, NoSchemaFoundInWildMode
+from recipe_scrapers import (
+    scrape_html,
+    WebsiteNotImplementedError,
+    NoSchemaFoundInWildMode,
+)
 from ingredient_parser import parse_ingredient
 
-from utils import eprint, sub_lists, print_recipe, highlight_replacement_in_text, HEADERS
+from utils import (
+    eprint,
+    sub_lists,
+    print_recipe,
+    highlight_replacement_in_text,
+    HEADERS,
+)
+
 # List of single stop words used to remove from ingredient list. Prevents outputs like @onion @powder{1%tbsp}{1%tbsp}
-single_stop_words = {"and", "or", "for", "the", "of", "powder", "syrup", "pinch", "cheese", "ground", "powdered", "seeds"}
+single_stop_words = {
+    "and",
+    "or",
+    "for",
+    "the",
+    "of",
+    "powder",
+    "syrup",
+    "pinch",
+    "cheese",
+    "ground",
+    "powdered",
+    "seeds",
+}
 
 # List of small amount types to convert quantity from 0 to 1.
 small_amount_words = {"dash", "pinch", "sprinkle", "smidgen", "drop", "bunch"}
@@ -44,7 +68,9 @@ except WebsiteNotImplementedError as e:
         scraper = scrape_html(html, org_url=args.link, wild_mode=True)
     except NoSchemaFoundInWildMode as exc:
         print(
-            "The domain is currently not supported, %s. You can request adding this domain at https://github.com/hhursev/recipe-scrapers/issues" % e.domain)
+            "The domain is currently not supported, %s. You can request adding this domain at https://github.com/hhursev/recipe-scrapers/issues"
+            % e.domain
+        )
         sys.exit(1)
 
 # Extract recipe details
@@ -66,19 +92,23 @@ ingredients_list = [
 eprint("\nDebug: Ingredients List")
 for idx, ingredient in enumerate(ingredients_list, 1):
     eprint(f"{idx}. {ingredient}")
-eprint("")  # Add a blank line for readability
+eprint("")
 
 # Convert the timers
 time_regex_match_str = r"(\d+|\d+\.\d+|\d+-\d+|\d+ to \d+) (min(?:utes)?|hours?|days?)"
 instructions = re.sub(time_regex_match_str, r"~{\1%\2}", instructions)
+
+
 def escape_regex_special_chars(text):
     return re.escape(text)
+
+
 for combined_ingredient in ingredients_list:
     # Extract the actual ingredient name from the IngredientText object
     ingredient_name = combined_ingredient.name.text
 
     quantity = combined_ingredient.amount[0].quantity  # Ensure this is a single value
-    unit = combined_ingredient.amount[0].unit  # Corrected to access unit from the first amount entry
+    unit = combined_ingredient.amount[0].unit
 
     # Remove decimal places of whole numbers, such as 1.0 to 1
     if isinstance(quantity, (int, float)) and quantity % 1 == 0:
@@ -89,7 +119,7 @@ for combined_ingredient in ingredients_list:
         quantity = f"{quantity:.2f}"
 
     # Unit is a small amount word and quantity is 0
-    if ((unit in small_amount_words) and (quantity == 0)):
+    if (unit in small_amount_words) and (quantity == 0):
         quantity = 1
 
     # Create sublists for word matches
@@ -101,15 +131,15 @@ for combined_ingredient in ingredients_list:
 
     # Remove single stop words
     if len(ing_list) > 1:
-        ing_list = list(
-            filter(lambda x: x[0] not in single_stop_words, ing_list)
-        )
+        ing_list = list(filter(lambda x: x[0] not in single_stop_words, ing_list))
 
     # Now generate regex string to match
     ing_list = sorted(ing_list, reverse=True, key=lambda x: len(x))
-    ing_regex_match_str = "|".join([fr'\b{escape_regex_special_chars(" ".join(x))}\b' for x in ing_list])
+    ing_regex_match_str = "|".join(
+        [rf'\b{escape_regex_special_chars(" ".join(x))}\b' for x in ing_list]
+    )
     ing_regex_match_str = r"(?:[^@])(" + ing_regex_match_str + r")"
-    
+
     # Debug: Print the regex pattern being compiled
     eprint(f"Debug: Regex pattern for '{ingredient_name}': {ing_regex_match_str}")
 
@@ -117,17 +147,27 @@ for combined_ingredient in ingredients_list:
     try:
         ing_regex = re.compile(ing_regex_match_str, flags=re.I)
     except re.error as regex_error:
-        eprint(f"Regex compilation error for ingredient '{ingredient_name}': {regex_error}")
+        eprint(
+            f"Regex compilation error for ingredient '{ingredient_name}': {regex_error}"
+        )
         eprint(f"Problematic regex pattern: {ing_regex_match_str}")
         continue  # Skip this ingredient and move to the next one
-    
+
     # regex match the text
     match_obj = ing_regex.search(instructions)
 
     eprint("")
     eprint(
         "✅" if match_obj else "❌",
-        f"@{ingredient_name}{{{quantity}%{unit}}}" if unit else (f"@{ingredient_name}{{}}" if quantity == 0 else f"@{ingredient_name}{{{quantity}}}")
+        (
+            f"@{ingredient_name}{{{quantity}%{unit}}}"
+            if unit
+            else (
+                f"@{ingredient_name}{{}}"
+                if quantity == 0
+                else f"@{ingredient_name}{{{quantity}}}"
+            )
+        ),
     )
     # If no match skip ingredient
     if match_obj is None:
@@ -137,11 +177,17 @@ for combined_ingredient in ingredients_list:
     match_end = match_obj.end(1)
 
     highlight_replacement_in_text(instructions, match_start, match_end)
-    ing_replacement = f"@{match_obj[1]}{{{quantity}%{unit}}}" if unit != "" else (f"@{match_obj[1]}{{}}" if quantity == 0 else f"@{match_obj[1]}{{{quantity}}}")
+    ing_replacement = (
+        f"@{match_obj[1]}{{{quantity}%{unit}}}"
+        if unit != ""
+        else (
+            f"@{match_obj[1]}{{}}"
+            if quantity == 0
+            else f"@{match_obj[1]}{{{quantity}}}"
+        )
+    )
     instructions = (
-        instructions[0:match_start]
-        + ing_replacement
-        + instructions[match_end:]
+        instructions[0:match_start] + ing_replacement + instructions[match_end:]
     )
 
 instructions = instructions.replace("\n", "\n\n")
