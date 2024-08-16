@@ -3,17 +3,19 @@ name = "cook-import"
 version = "0.1.0"
 description = ""
 authors = ["Alexey Dubovskoy <dubovskoy.a@gmail.com>"]
+packages = [{include = "cook_import", from = "src"}]
 
 [tool.poetry.dependencies]
-python = "*"
+python = ">=3.10"
 recipe-scrapers = ">=15.0.0"
-parse-ingredients = {url = "https://github.com/cooklang/parse-ingredients/archive/refs/tags/v0.0.4.tar.gz"}
-pyinstaller = "^4.7"
+pyinstaller = "*"
+ingredient_parser_nlp = "*"
 
 [tool.poetry.dev-dependencies]
+pytest = "*"
 
 [tool.poetry.scripts]
-cook-import = 'cook-import:main'
+cook-import = 'cook_import.main:main'
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
