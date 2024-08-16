@@ -13,18 +13,27 @@ from recipe_scrapers import (
 from ingredient_parser import parse_ingredient
 
 from .utils import (
-    eprint,
     sub_lists,
-    print_recipe,
     highlight_replacement_in_text,
     HEADERS,
 )
 
 single_stop_words = {
-    "and", "or", "for", "the", "of", "powder", "syrup", "pinch",
-    "cheese", "ground", "powdered", "seeds",
+    "and",
+    "or",
+    "for",
+    "the",
+    "of",
+    "powder",
+    "syrup",
+    "pinch",
+    "cheese",
+    "ground",
+    "powdered",
+    "seeds",
 }
 small_amount_words = {"dash", "pinch", "sprinkle", "smidgen", "drop", "bunch"}
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -39,8 +48,10 @@ def parse_arguments():
     )
     return parser.parse_args()
 
+
 def get_html_content(url):
     return requests.get(url, headers=HEADERS).content
+
 
 def parse_recipe(html, url):
     try:
@@ -51,11 +62,15 @@ def parse_recipe(html, url):
         except NoSchemaFoundInWildMode:
             raise ValueError(f"The domain {e.domain} is currently not supported.")
 
+
 def parse_ingredients(ingredients):
-    return [
-        parse_ingredient(re.sub(r"\.", "", ingredient))
-        for ingredient in ingredients
-    ]
+    parsed = []
+    for ingredient in ingredients:
+        parsed_ingredient = parse_ingredient(re.sub(r"\.", "", ingredient))
+        if parsed_ingredient.name:
+            parsed.append(parsed_ingredient)
+    return parsed
+
 
 def process_instructions(instructions, ingredients_list):
     instructions = convert_timers(instructions)
@@ -63,39 +78,56 @@ def process_instructions(instructions, ingredients_list):
         instructions = process_ingredient(instructions, ingredient)
     return instructions.replace("\n", "\n\n")
 
+
 def convert_timers(instructions):
-    time_regex_match_str = r"(\d+|\d+\.\d+|\d+-\d+|\d+ to \d+) (min(?:utes)?|hours?|days?)"
+    time_regex_match_str = (
+        r"(\d+|\d+\.\d+|\d+-\d+|\d+ to \d+) (min(?:utes)?|hours?|days?)"
+    )
     return re.sub(time_regex_match_str, r"~{\1%\2}", instructions)
+
 
 def process_ingredient(instructions, combined_ingredient):
     ingredient_name = combined_ingredient.name.text
     quantity, unit = extract_quantity_and_unit(combined_ingredient)
-    
+
     ing_regex_match_str = create_ingredient_regex(ingredient_name)
     ing_regex = re.compile(ing_regex_match_str, flags=re.I)
-    
+
     match_obj = ing_regex.search(instructions)
     if match_obj is None:
         return instructions
-    
+
     match_start, match_end = match_obj.start(1), match_obj.end(1)
     highlight_replacement_in_text(instructions, match_start, match_end)
-    
+
     ing_replacement = create_ingredient_replacement(match_obj[1], quantity, unit)
     return instructions[:match_start] + ing_replacement + instructions[match_end:]
 
+
 def extract_quantity_and_unit(combined_ingredient):
+    if not combined_ingredient.amount:
+        return 0, ""
+
     quantity = combined_ingredient.amount[0].quantity
     unit = combined_ingredient.amount[0].unit
-    
-    if isinstance(quantity, (int, float)) and quantity % 1 == 0:
-        quantity = int(quantity)
-    if isinstance(quantity, float) and len(str(quantity)) > 5:
-        quantity = f"{quantity:.2f}"
+
+    # Handle ranges or alternative measurements
+    if isinstance(quantity, str) and ("-" in quantity or "to" in quantity):
+        quantities = re.split(r"-|to", quantity)
+        quantity = quantities[-1].strip()  # Use the larger quantity
+
+    try:
+        quantity = float(quantity)
+        if quantity.is_integer():
+            quantity = int(quantity)
+    except ValueError:
+        pass  # Keep it as a string if it can't be converted
+
     if unit in small_amount_words and quantity == 0:
         quantity = 1
-    
+
     return quantity, unit
+
 
 def create_ingredient_regex(ingredient_name):
     ing_list = sub_lists(ingredient_name.split(" "))
@@ -103,12 +135,13 @@ def create_ingredient_regex(ingredient_name):
     if len(ing_list) > 1:
         ing_list = list(filter(lambda x: x[0] not in single_stop_words, ing_list))
     ing_list = sorted(ing_list, reverse=True, key=lambda x: len(x))
-    ing_regex_match_str = "|".join(
-        [rf'\b{re.escape(" ".join(x))}\b' for x in ing_list]
-    )
+    ing_regex_match_str = "|".join([rf'\b{re.escape(" ".join(x))}\b' for x in ing_list])
     return r"(" + ing_regex_match_str + r")"
 
+
 def create_ingredient_replacement(ingredient, quantity, unit):
+    base_ingredient = ingredient.replace(" ", "_")
+    ingredient = base_ingredient
     if unit:
         return f"@{ingredient}{{{quantity}%{unit}}}"
     elif quantity == 0:

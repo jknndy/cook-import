@@ -7,8 +7,9 @@ from cook_import.main import (
     parse_recipe,
     parse_ingredients,
     process_instructions,
-    print_recipe
 )
+from cook_import.utils import print_recipe
+
 from cook_import.utils import eprint
 
 def parse_arguments():
@@ -22,20 +23,25 @@ def parse_arguments():
         help="If you want the output to be in a file, use this flag. Otherwise defaults to console screen.",
         action="store_true",
     )
-    return parser.parse_args()
+    return parser, parser.parse_args()
 
 def main():
-    args = parse_arguments()
+    parser, args = parse_arguments()
     if len(sys.argv) == 1:
-        parse_arguments().print_help()
-        sys.exit(1)
+        parser.print_help()
+        return 1
+
+    if not args.link:
+        print("Error: The --link argument is required.", file=sys.stderr)
+        parser.print_help()
+        return 1
 
     try:
         html = get_html_content(args.link)
         scraper = parse_recipe(html, args.link)
     except ValueError as e:
         print(str(e), file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     title = scraper.title()
     image = scraper.image()
