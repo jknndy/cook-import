@@ -1,15 +1,6 @@
-import sys
-
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0"
 }
-
-
-def eprint(*args, **kwargs):
-    """
-    Print to standard error for the console.
-    """
-    print(*args, file=sys.stderr, **kwargs)
 
 
 def sub_lists(lst):
@@ -17,24 +8,11 @@ def sub_lists(lst):
     for i in range(len(lst)):
         for j in range(i + 1, len(lst) + 1):
             subs.append(lst[i:j])
+    subs.sort(key=lambda x: (len(x), lst.index(x[0]) if x else -1))
     return subs
 
 
-def highlight_replacement_in_text(instructions, match_start, match_end):
-    start = max(0, match_start - 18)
-    end = min(len(instructions), match_end + 18)
-
-    highlighted = instructions[start:end]
-    pointer = " " * (match_start - start) + "^" * (match_end - match_start)
-
-    eprint("...", highlighted, "...")
-    eprint("...", pointer, "...")
-
-
 def print_recipe(title, link, total_time, image, instructions, to_file=False):
-    """
-    Write the recipe to a file or print to stdout
-    """
     recipe = [
         f">> source: {link}",
         f">> time required: {total_time} minutes",
@@ -51,8 +29,5 @@ def print_recipe(title, link, total_time, image, instructions, to_file=False):
 
 
 def get_file_contents(filename):
-    """
-    Read and return the contents of a file
-    """
     with open(filename, "r") as file:
         return file.read()

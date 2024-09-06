@@ -14,7 +14,6 @@ from ingredient_parser import parse_ingredient
 
 from .utils import (
     sub_lists,
-    highlight_replacement_in_text,
     HEADERS,
 )
 
@@ -98,7 +97,6 @@ def process_ingredient(instructions, combined_ingredient):
         return instructions
 
     match_start, match_end = match_obj.start(1), match_obj.end(1)
-    highlight_replacement_in_text(instructions, match_start, match_end)
 
     ing_replacement = create_ingredient_replacement(match_obj[1], quantity, unit)
     return instructions[:match_start] + ing_replacement + instructions[match_end:]
@@ -111,17 +109,16 @@ def extract_quantity_and_unit(combined_ingredient):
     quantity = combined_ingredient.amount[0].quantity
     unit = combined_ingredient.amount[0].unit
 
-    # Handle ranges or alternative measurements
     if isinstance(quantity, str) and ("-" in quantity or "to" in quantity):
         quantities = re.split(r"-|to", quantity)
-        quantity = quantities[-1].strip()  # Use the larger quantity
+        quantity = quantities[-1].strip()
 
     try:
         quantity = float(quantity)
         if quantity.is_integer():
             quantity = int(quantity)
     except ValueError:
-        pass  # Keep it as a string if it can't be converted
+        pass
 
     if unit in small_amount_words and quantity == 0:
         quantity = 1
@@ -140,7 +137,7 @@ def create_ingredient_regex(ingredient_name):
 
 
 def create_ingredient_replacement(ingredient, quantity, unit):
-    base_ingredient = ingredient.replace(" ", "_")
+    base_ingredient = ingredient.replace(" ", " ")
     ingredient = base_ingredient
     if unit:
         return f"@{ingredient}{{{quantity}%{unit}}}"

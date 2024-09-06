@@ -10,7 +10,6 @@ from cook_import.main import (
 )
 from cook_import.utils import print_recipe
 
-from cook_import.utils import eprint
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
@@ -24,6 +23,7 @@ def parse_arguments():
         action="store_true",
     )
     return parser, parser.parse_args()
+
 
 def main():
     parser, args = parse_arguments()
@@ -47,21 +47,14 @@ def main():
     image = scraper.image()
     total_time = scraper.total_time()
 
-    eprint("Title:", title)
-    eprint("Image:", image)
-
     instructions = scraper.instructions()
     ingredients_list = parse_ingredients(scraper.ingredients())
-
-    eprint("\nDebug: Ingredients List")
-    for idx, ingredient in enumerate(ingredients_list, 1):
-        eprint(f"{idx}. {ingredient}")
-    eprint("")
 
     instructions = process_instructions(instructions, ingredients_list)
 
     print_recipe(title, args.link, total_time, image, instructions, to_file=args.file)
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
